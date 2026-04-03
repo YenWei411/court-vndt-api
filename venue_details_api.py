@@ -193,12 +193,15 @@ def _make_driver(headless: bool = True) -> webdriver.Chrome:
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
-    # Support CHROME_BIN env var for Docker
+    
     chrome_bin = os.environ.get("CHROME_BIN")
     if chrome_bin:
         options.binary_location = chrome_bin
+    
+    # Use system chromedriver instead of downloading
+    chromedriver_path = os.environ.get("CHROMEDRIVER_PATH", "/usr/bin/chromedriver")
     return webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()),
+        service=Service(chromedriver_path),
         options=options,
     )
 
