@@ -1,14 +1,13 @@
 FROM python:3.11-slim
 
-RUN apt-get update && apt-get install -y \
+# Install Chromium + required dependencies (without the obsolete libgconf-2-4)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     chromium-driver \
     libglib2.0-0 \
     libnss3 \
-    libgconf-2-4 \
     libfontconfig1 \
     fonts-liberation \
-    libappindicator3-1 \
     libasound2 \
     libatk-bridge2.0-0 \
     libatk1.0-0 \
@@ -30,6 +29,7 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
+# Important environment variables for your code
 ENV CHROME_BIN=/usr/bin/chromium
 ENV CHROME_PATH=/usr/bin/chromium
 
