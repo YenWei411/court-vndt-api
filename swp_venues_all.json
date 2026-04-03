@@ -1,0 +1,202 @@
+[
+  {
+    "id": "ISALSTBB",
+    "type": [
+      {
+        "text": "Badminton",
+        "backgroundColor": "2471a3"
+      },
+      {
+        "text": "Pickleball",
+        "backgroundColor": "2471a3"
+      }
+    ],
+    "coverImage": "https://www.solemas.com/swp_assets/court_institution/ISALSTBB/court_institution_image/ISALSTBB-1741856633485569.jpg",
+    "rating": 4.487804878048781,
+    "ratingCount": 41,
+    "venueName": "Alor Setar Pickleball Community",
+    "address": "Taman Bahagia basketball, 05050 Alor Setar, Kedah",
+    "numberOfCourt": 4,
+    "bookingLink": "https://www.swp.solemas.com/booking/venue_details/ISALSTBB/booking_confirmations"
+  },
+  {
+    "id": "ArenaPickle",
+    "type": [
+      {
+        "text": "Pickleball",
+        "backgroundColor": "2471a3"
+      }
+    ],
+    "coverImage": "https://www.solemas.com/swp_assets/court_institution/ISYDCXMFTX/court_institution_image/ISYDCXMFTX-1752747986945233.png",
+    "rating": 0.0,
+    "ratingCount": 0,
+    "venueName": "Arena Pickle",
+    "address": "G02-09, Residensi KLIA, Jalan Pusat Niaga Klia 6, 71800 Nilai, Negeri Sembilan",
+    "numberOfCourt": 8,
+    "bookingLink": "https://www.swp.solemas.com/booking/venue_details/ISYDCXMFTX/booking_confirmations"
+  },
+  {
+    "id": "ISNRDPZVD6",
+    "type": [
+      {
+        "text": "Pickleball",
+        "backgroundColor": "2471a3"
+      }
+    ],
+    "coverImage": "https://www.solemas.com/swp_assets/court_institution/ISNRDPZVD6/court_institution_image/ISNRDPZVD6-1764943873786084.png",
+    "rating": 4.48936170212766,
+    "ratingCount": 47,
+    "venueName": "Baby G Pickle",
+    "address": "Lot 1237A, Lorong Binajaya 5, Taman Perindustrian Ringan Usahajaya, 14000 Bukit Mertajam, Pulau Pinang",
+    "numberOfCourt": 6,
+    "bookingLink": "https://www.swp.solemas.com/booking/venue_details/ISNRDPZVD6/booking_confirmations"
+  },
+  {
+    "id": "BabyGPickleballBatuMaung",
+    "type": [
+      {
+        "text": "Pickleball",
+        "backgroundColor": "2471a3"
+      }
+    ],
+    "coverImage": "https://www.solemas.com/swp_assets/court_institution/ISPKGSBZ/court_institution_image/ISPKGSBZ-1763793193022221.png",
+    "rating": 5.0,
+    "ratingCount": 3,
+    "venueName": "Baby G Pickleball Batu Maung",
+    "address": "Baby G Pickleball Batu Maung, 214 Block H, Jln Baru Batu Maung, Pekan Baru Batu Maung, 11960 Bayan Lepas, Pulau Pinang ",
+    "numberOfCourt": 6,
+    "bookingLink": "https://www.swp.solemas.com/booking/venue_details/ISPKGSBZ/booking_confirmations"
+  },
+  {
+    "id": "ISBTHHSL",
+    "type": [
+      {
+        "text": "Badminton",
+        "backgroundColor": "2471a3"
+      },
+      {
+        "text": "Pickleball",
+        "backgroundColor": "2471a3"
+      }
+    ],
+    "coverImage": "https://www.solemas.com/swp_assets/court_institution/ISBTHHSL/court_institution_image/ISBTHHSL-1742110451589862.jpg",
+    "rating": 4.578947368421052,
+    "ratingCount": 38,
+    "venueName": "Bengteik Cawangan Pickleball",
+    "address": "244P, Jelutong Barat, Taman Ara, 11600 George Town, Pulau Pinang",
+    "numberOfCourt": 6,
+    "bookingLink": "https://www.swp.solemas.com/booking/venue_details/ISBTHHSL/booking_confirmations"
+  },
+  {
+    "id": "ISBSCBMP",
+    "type": [
+      {
+        "text": "Badminton",
+        "backgroundColor": "2471a3"
+      }
+    ],
+    "coverImage": "https://www.solemas.com/swp_assets/court_institution/ISBSCBMP/court_institution_image/ISBSCBMP-1746240684328712.png",
+    "rating": 5.0,
+    "ratingCount": 11,
+    "venueName": "BERAPIT SPORT CENTRE",
+    "address": "Berapit Sport Centre, Jalan Kampung Besar Berapit Permatang Pauh, 14000 Bukit Mertajam, Pulau Pinang",
+    "numberOfCourt": 10,
+    "bookingLink": "https://www.swp.solemas.com/booking/venue_details/ISBSCBMP/booking_confirmations"
+  },
+  {
+    "id": "BmPickleSportCentre",
+    "type": [
+      {
+        "text": "Pickleball",
+        "backgroundColor": "2471a3"
+      }
+    ],
+    "coverImage": "https://www.solemas.com/swp_assets/court_institution/ISBMPSCP/court_institution_image/ISBMPSCP-1754384028327252.png",
+    "rating": 5.0,
+    "ratingCount": 1,
+    "venueName": "BM PICKLE SPORT CENTRE",
+    "address": "1807, Jln Tanah Liat, Kampung Uma, 14000 Bukit Mertajam, Pulau Pinang",
+    "numberOfCourt": 3,
+    "bookingLink": "https://www.swp.solemas.com/booking/venue_details/ISBMPSCP/booking_confirmations"
+  },
+  {
+    "id": "CityPickle",
+    "type": [
+      {
+        "text": "Pickleball",
+        "backgroundColor": "2471a3"
+      }
+    ],
+    "coverImage": "https://www.solemas.com/swp_assets/court_institution/ISCITYKL/court_institution_image/ISCITYKL-1742567920168841.jpg",
+    "rating": 4.541666666666667,
+    "ratingCount": 48,
+    "venueName": "City Pickle",
+    "address": "CONCOURSE C, GROUND FLOOR SKY PARK ONE CITY JALAN USJ 25/1, SUBANG JAYA, 47650",
+    "numberOfCourt": 6,
+    "bookingLink": "https://www.swp.solemas.com/booking/venue_details/ISCITYKL/booking_confirmations"
+  },
+  {
+    "id": "ISBXPWKK8G",
+    "type": [
+      {
+        "text": "Badminton",
+        "backgroundColor": "2471a3"
+      }
+    ],
+    "coverImage": "https://www.solemas.com/swp_assets/court_institution/ISBXPWKK8G/court_institution_image/ISBXPWKK8G-1752066447589522.png",
+    "rating": 2.0,
+    "ratingCount": 4,
+    "venueName": "CPS Pro Badminton Court",
+    "address": "41, Lorong Madras, 10400 George Town, Pulau Pinang",
+    "numberOfCourt": 1,
+    "bookingLink": "https://www.swp.solemas.com/booking/venue_details/ISBXPWKK8G/booking_confirmations"
+  },
+  {
+    "id": "DinkPickleDailyPJ",
+    "type": [
+      {
+        "text": "Pickleball",
+        "backgroundColor": "2471a3"
+      }
+    ],
+    "coverImage": "https://www.solemas.com/swp_assets/court_institution/ISDKPCKDL/court_institution_image/ISDKPCKDL-1741570718971290.jpg",
+    "rating": 4.527272727272727,
+    "ratingCount": 55,
+    "venueName": "Dink! Pickle Daily",
+    "address": "Lot 8, Jalan 51A/241, Seksyen 51A, 46100 Petaling Jaya, Selangor",
+    "numberOfCourt": 10,
+    "bookingLink": "https://www.swp.solemas.com/booking/venue_details/ISDKPCKDL/booking_confirmations"
+  },
+  {
+    "id": "gardenrallypg",
+    "type": [
+      {
+        "text": "Pickleball",
+        "backgroundColor": "2471a3"
+      }
+    ],
+    "coverImage": "https://www.solemas.com/swp_assets/court_institution/ISYEL4KSBD/court_institution_image/ISYEL4KSBD-1764142335423743.png",
+    "rating": 3.5,
+    "ratingCount": 2,
+    "venueName": "Garden Rally",
+    "address": "Garden Rally, 1-02-77 Elit Avenue Business Park, Jalan Mayang Pasir 3, 11950 Bayan Lepas, Pulau Pinang",
+    "numberOfCourt": 3,
+    "bookingLink": "https://www.swp.solemas.com/booking/venue_details/ISYEL4KSBD/booking_confirmations"
+  },
+  {
+    "id": "GOAT_Pickle_Club_Jelutong",
+    "type": [
+      {
+        "text": "Pickleball",
+        "backgroundColor": "2471a3"
+      }
+    ],
+    "coverImage": "https://www.solemas.com/swp_assets/court_institution/IS00004/court_institution_image/IS00004-1738738983043646.jpg",
+    "rating": 4.768817204301075,
+    "ratingCount": 93,
+    "venueName": "GOAT Pickle Club (Jelutong)",
+    "address": "341, Jalan Jeti Jelutong, 11600, Jelutong Pulau Pinang",
+    "numberOfCourt": 12,
+    "bookingLink": "https://www.swp.solemas.com/booking/venue_details/IS00004/booking_confirmations"
+  }
+]
