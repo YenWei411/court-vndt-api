@@ -53,8 +53,6 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import StaleElementReferenceException
 
-from webdriver_manager.chrome import ChromeDriverManager
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
