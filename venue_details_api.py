@@ -1,9 +1,11 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 # Venue Details REST API
-# Self-contained Flask API wrapping get_venue_details() with Selenium scraping
+# Self-contained Flask API wrapping get_venue_details() with Selenium scraping.
+# Uses a local JSON knowledge base (KB) for fast venue lookups before hitting
+# external APIs.
 # ═══════════════════════════════════════════════════════════════════════════════
 #
-# Requirements: flask, flask-cors, requests, beautifulsoup4, selenium, webdriver-manager
+# Requirements: flask, flask-cors, requests, beautifulsoup4, selenium
 #
 # requirements.txt:
 # flask==3.0.0
@@ -11,7 +13,6 @@
 # requests==2.31.0
 # beautifulsoup4==4.12.3
 # selenium==4.25.0
-# webdriver-manager==4.0.2
 #
 # To run locally:
 #   pip install -r requirements.txt
@@ -21,6 +22,7 @@
 # FROM python:3.11-slim
 # RUN apt-get update && apt-get install -y chromium chromium-driver && rm -rf /var/lib/apt/lists/*
 # ENV CHROME_BIN=/usr/bin/chromium
+# ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
 # WORKDIR /app
 # COPY requirements.txt .
 # RUN pip install --no-cache-dir -r requirements.txt
@@ -31,8 +33,6 @@
 # API Usage:
 #   POST /api/venue-details
 #   Body: {"venue_name": "One Badminton Academy"}
-#   or:   {"slug": "one-badminton-academy"}          (AFA direct)
-#   or:   {"venue_id": "ISALSTBB"}                    (SWP direct)
 #
 #   GET /health
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -52,8 +52,6 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import StaleElementReferenceException
-
-from webdriver_manager.chrome import ChromeDriverManager
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -103,82 +101,108 @@ SWP_SPORTS_PATTERN = re.compile(
     re.I,
 )
 
-# Paths to JSON files (expected in same directory as this script)
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SWP_VENUES_JSON = os.path.join(SCRIPT_DIR, "swp_venues_all.json")
-AFA_VENUES_JSON = os.path.join(SCRIPT_DIR, "afa_venues_all.json")
+# ── JSON KB paths ──
+# JSON KB files live under final/ relative to this script.
+SCRIPT_DIR       = os.path.dirname(os.path.abspath(__file__))
+SWP_VENUES_JSON  = os.path.join(SCRIPT_DIR, "final", "swpvenues_all.json")
+AFA_VENUES_JSON  = os.path.join(SCRIPT_DIR, "final", "afa_venues_all.json")
 
-# Global in-memory venue data
-swp_venues: Dict[str, Dict] = {}
-afa_venues: Dict[str, Dict] = {}
+# Fallback: also check root directory (for local dev without final/ subdir)
+if not os.path.exists(SWP_VENUES_JSON):
+    SWP_VENUES_JSON = os.path.join(SCRIPT_DIR, "swp_venues_all.json")
+if not os.path.exists(AFA_VENUES_JSON):
+    AFA_VENUES_JSON = os.path.join(SCRIPT_DIR, "afa_venues_all.json")
+
+# Global in-memory KB: list of venue dicts keyed by name
+_swp_kb: List[Dict] = []
+_afa_kb: List[Dict] = []
 
 
 # ═══════════════════════════════════════════════════════════
-# HELPERS (inlined from helpers.py)
+# JSON KB — Load & Lookup
 # ═══════════════════════════════════════════════════════════
 
-def load_venue_data():
-    """Load SWP and AFA venue data into memory."""
-    global swp_venues, afa_venues
+def _load_kb() -> None:
+    """Load SWP and AFA JSON KB files into memory at startup."""
+    global _swp_kb, _afa_kb
+
     if os.path.exists(SWP_VENUES_JSON):
-        with open(SWP_VENUES_JSON, 'r', encoding='utf-8') as f:
-            swp_data = json.load(f)
-            swp_venues = {venue['name']: venue for venue in swp_data}
-        print(f"[Startup] Loaded {len(swp_venues)} SWP venues")
+        with open(SWP_VENUES_JSON, "r", encoding="utf-8") as f:
+            _swp_kb = json.load(f)
+        print(f"[Startup] Loaded {len(_swp_kb)} SWP venues from {SWP_VENUES_JSON}")
     else:
-        print(f"[Startup] WARNING: {SWP_VENUES_JSON} not found")
+        print(f"[Startup] WARNING: SWP KB not found at {SWP_VENUES_JSON}")
 
     if os.path.exists(AFA_VENUES_JSON):
-        with open(AFA_VENUES_JSON, 'r', encoding='utf-8') as f:
-            afa_data = json.load(f)
-            afa_venues = {venue['name']: venue for venue in afa_data}
-        print(f"[Startup] Loaded {len(afa_venues)} AFA venues")
+        with open(AFA_VENUES_JSON, "r", encoding="utf-8") as f:
+            _afa_kb = json.load(f)
+        print(f"[Startup] Loaded {len(_afa_kb)} AFA venues from {AFA_VENUES_JSON}")
     else:
-        print(f"[Startup] WARNING: {AFA_VENUES_JSON} not found")
+        print(f"[Startup] WARNING: AFA KB not found at {AFA_VENUES_JSON}")
 
 
-def lookup_venue(venue_name: str) -> Optional[Dict[str, Any]]:
-    """Lookup venue by name in SWP or AFA data.
-    Returns {'source': 'swp' or 'afa', 'id': ..., 'slug': ..., 'data': ...} or None.
+def _lookup_venue_from_json(venue_name: str) -> Optional[Dict[str, Any]]:
     """
-    # Check SWP first
-    if venue_name in swp_venues:
-        venue = swp_venues[venue_name]
+    Search the in-memory JSON KB for a venue by name.
+
+    Strategy:
+      1. Exact match (case-sensitive) across SWP then AFA.
+      2. Case-insensitive exact match.
+      3. Fuzzy substring match (query is substring of entry, or vice-versa).
+
+    Returns a normalised dict:
+      {
+        "source":      "swp" | "afa",
+        "venue_id":    str,
+        "slug":        str | None,
+        "booking_url": str | None,
+        "name":        str,
+      }
+    or None if no match found.
+    """
+    def _normalise(entry: Dict) -> Dict:
         return {
-            'source': 'swp',
-            'id': venue['id'],
-            'slug': venue['id'],  # SWP uses id as slug
-            'data': venue
-        }
-    # Check AFA
-    if venue_name in afa_venues:
-        venue = afa_venues[venue_name]
-        return {
-            'source': 'afa',
-            'id': venue['id'],
-            'slug': venue['slug'],
-            'data': venue
+            "source":      entry.get("source", ""),
+            "venue_id":    entry.get("venue_id", ""),
+            "slug":        entry.get("slug") or None,
+            "booking_url": entry.get("booking_url") or None,
+            "name":        entry.get("name", ""),
         }
 
-    # Fuzzy match: check if venue_name is a substring of any known venue name
+    # ── Pass 1: exact match ──
+    for entry in _swp_kb:
+        if entry.get("name") == venue_name:
+            print(f"  [KB] Exact SWP match: '{entry['name']}'")
+            return _normalise(entry)
+    for entry in _afa_kb:
+        if entry.get("name") == venue_name:
+            print(f"  [KB] Exact AFA match: '{entry['name']}'")
+            return _normalise(entry)
+
+    # ── Pass 2: case-insensitive exact match ──
     name_lower = venue_name.strip().lower()
-    for vname, venue in swp_venues.items():
-        if name_lower in vname.lower() or vname.lower() in name_lower:
-            return {
-                'source': 'swp',
-                'id': venue['id'],
-                'slug': venue['id'],
-                'data': venue
-            }
-    for vname, venue in afa_venues.items():
-        if name_lower in vname.lower() or vname.lower() in name_lower:
-            return {
-                'source': 'afa',
-                'id': venue['id'],
-                'slug': venue['slug'],
-                'data': venue
-            }
+    for entry in _swp_kb:
+        if entry.get("name", "").lower() == name_lower:
+            print(f"  [KB] Case-insensitive SWP match: '{entry['name']}'")
+            return _normalise(entry)
+    for entry in _afa_kb:
+        if entry.get("name", "").lower() == name_lower:
+            print(f"  [KB] Case-insensitive AFA match: '{entry['name']}'")
+            return _normalise(entry)
 
+    # ── Pass 3: fuzzy substring match ──
+    for entry in _swp_kb:
+        entry_lower = entry.get("name", "").lower()
+        if name_lower in entry_lower or entry_lower in name_lower:
+            print(f"  [KB] Fuzzy SWP match: '{entry['name']}'")
+            return _normalise(entry)
+    for entry in _afa_kb:
+        entry_lower = entry.get("name", "").lower()
+        if name_lower in entry_lower or entry_lower in name_lower:
+            print(f"  [KB] Fuzzy AFA match: '{entry['name']}'")
+            return _normalise(entry)
+
+    print(f"  [KB] No match found for '{venue_name}'")
     return None
 
 
@@ -193,12 +217,12 @@ def _make_driver(headless: bool = True) -> webdriver.Chrome:
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--window-size=1920,1080")
-    
+
     chrome_bin = os.environ.get("CHROME_BIN")
     if chrome_bin:
         options.binary_location = chrome_bin
-    
-    # Use system chromedriver instead of downloading
+
+    # Use system chromedriver binary (fixed path — no ChromeDriverManager)
     chromedriver_path = os.environ.get("CHROMEDRIVER_PATH", "/usr/bin/chromedriver")
     return webdriver.Chrome(
         service=Service(chromedriver_path),
@@ -302,9 +326,9 @@ def _afa_scrape_sections(slug: str, headless: bool) -> dict:
     return sections
 
 
-def _afa_get_venue_details(slug: str, headless: bool) -> Optional[dict]:
+def _afa_get_venue_details(slug: str, headless: bool = True) -> Optional[dict]:
     """
-    Called when source='afa' is known from cache.
+    Called when source='afa' is known from the JSON KB.
     Hits AFA REST API directly with slug + scrapes accordion sections.
     No search required.
     """
@@ -324,9 +348,9 @@ def _afa_get_venue_details(slug: str, headless: bool) -> Optional[dict]:
     return _map_from_afa(api_data, sections)
 
 
-def _afa_fallback_search(venue_name: str, headless: bool) -> Optional[dict]:
+def _afa_fallback_search(venue_name: str, headless: bool = True) -> Optional[dict]:
     """
-    Called only when venue is NOT in cache.
+    Called only when venue is NOT in the JSON KB.
     Searches AFA listing API by name → finds slug → fetches full details.
     """
     print(f"\n[AFA·Fallback] Searching for '{venue_name}' ...")
@@ -410,8 +434,8 @@ def _swp_parse_venue_page(soup: BeautifulSoup, base_url: str) -> dict:
     """
     Extracts structured fields from the SWP venue page HTML.
     NOTE: booking_url is intentionally NOT extracted here —
-          it is passed in from the venue list cache which holds
-          the authoritative bookingLink from the SWP API.
+          it is passed in from the JSON KB which holds the authoritative
+          booking URL from the SWP API.
     """
     data = {
         "venue_name":         None,
@@ -567,15 +591,15 @@ def _swp_scrape_sections(driver) -> dict:
 
 def _swp_get_venue_details(
     venue_id:    str,
-    headless:    bool,
     booking_url: str = "",
+    headless:    bool = True,
 ) -> Optional[dict]:
     """
-    Called when source='swp' is known from cache.
+    Called when source='swp' is known from the JSON KB.
     Navigates directly to sportsweplay.com.my/venue/{venue_id}/ — no search needed.
 
-    booking_url is NOT scraped from the page — it is taken from the venue list
-    cache where it was mapped directly from SWP's own API field 'bookingLink'.
+    booking_url is NOT scraped from the page — it is taken from the JSON KB
+    which holds the authoritative booking URL from the SWP API.
     """
     url = f"https://www.sportsweplay.com.my/venue/{venue_id}/"
     print(f"\n[SWP] Fetching details — venue_id='{venue_id}'")
@@ -612,9 +636,9 @@ def _swp_get_venue_details(
         driver.quit()
 
 
-def _swp_fallback_search(venue_name: str, headless: bool) -> Optional[dict]:
+def _swp_fallback_search(venue_name: str, headless: bool = True) -> Optional[dict]:
     """
-    Called only when venue is NOT in cache.
+    Called only when venue is NOT in the JSON KB.
     Searches SWP listing API by name → finds venue_id + bookingLink → fetches details.
     """
     print(f"\n[SWP·Fallback] Searching for '{venue_name}' ...")
@@ -655,7 +679,7 @@ def _swp_fallback_search(venue_name: str, headless: bool) -> Optional[dict]:
 
     if best_id and best_score >= 40:
         print(f"  [SWP·Fallback] Found venue_id='{best_id}'")
-        return _swp_get_venue_details(best_id, headless, booking_url=best_link)
+        return _swp_get_venue_details(best_id, booking_url=best_link, headless=headless)
 
     print(f"  [SWP·Fallback] Not found.")
     return None
@@ -774,37 +798,41 @@ def _map_from_swp(parsed: dict, sections: dict) -> dict:
 # MAIN FUNCTION — get_venue_details()
 # ═══════════════════════════════════════════════════════════
 
-def get_venue_details(
-    venue_name: str,
-    slug: Optional[str] = None,
-    venue_id: Optional[str] = None,
-) -> Optional[Dict]:
-    """Get detailed venue info. If slug/venue_id provided, use directly; else lookup by name."""
-    if slug:
-        # Assume AFA if slug provided
-        return _afa_get_venue_details(slug, headless=True)
-    elif venue_id:
-        # Assume SWP if venue_id provided
-        booking_url = ""
-        return _swp_get_venue_details(venue_id, headless=True, booking_url=booking_url)
-    else:
-        # Lookup by name in cached data
-        match = lookup_venue(venue_name)
-        if match:
-            if match['source'] == 'afa':
-                return _afa_get_venue_details(match['slug'], headless=True)
-            elif match['source'] == 'swp':
-                booking_url = match.get('booking_url', '') or match.get('data', {}).get('bookingLink', '')
-                return _swp_get_venue_details(match['id'], headless=True, booking_url=booking_url)
+def get_venue_details(venue_name: str) -> Optional[Dict]:
+    """
+    Get full venue details for the given venue name.
 
-        # Fallback: search both platforms
-        print(f"\n[Fallback] Venue '{venue_name}' not in cache. Searching both platforms...")
-        result = _afa_fallback_search(venue_name, headless=True)
-        if result:
-            return result
-        result = _swp_fallback_search(venue_name, headless=True)
-        if result:
-            return result
+    Lookup order:
+      1. Search JSON KB (_lookup_venue_from_json) for fast source/ID resolution.
+      2. If found in KB → call the appropriate scraper directly (no listing search).
+      3. If not in KB → fall back to live API search on both AFA and SWP.
+    """
+    print(f"\n[get_venue_details] Looking up '{venue_name}'")
+
+    match = _lookup_venue_from_json(venue_name)
+
+    if match:
+        source = match["source"]
+        if source == "afa":
+            slug = match.get("slug")
+            if not slug:
+                print(f"  [KB] AFA entry has no slug — falling back to search")
+                return _afa_fallback_search(venue_name)
+            return _afa_get_venue_details(slug)
+
+        elif source == "swp":
+            venue_id    = match.get("venue_id", "")
+            booking_url = match.get("booking_url", "") or ""
+            return _swp_get_venue_details(venue_id, booking_url=booking_url)
+
+    # Not in KB — search both platforms
+    print(f"\n[Fallback] '{venue_name}' not in KB. Searching both platforms...")
+    result = _afa_fallback_search(venue_name)
+    if result:
+        return result
+    result = _swp_fallback_search(venue_name)
+    if result:
+        return result
 
     return None
 
@@ -816,21 +844,19 @@ def get_venue_details(
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({
-        "status": "healthy",
-        "swp_venues_loaded": len(swp_venues),
-        "afa_venues_loaded": len(afa_venues),
-    })
+        "status":             "healthy",
+        "swp_venues_loaded":  len(_swp_kb),
+        "afa_venues_loaded":  len(_afa_kb),
+    }), 200
 
 
 @app.route('/api/venue-details', methods=['POST'])
 def api_venue_details():
     """
     POST /api/venue-details
-    Body: {
-        "venue_name": "One Badminton Academy",   // required if slug/venue_id not given
-        "slug": "one-badminton-academy",          // optional — AFA direct lookup
-        "venue_id": "ISALSTBB"                    // optional — SWP direct lookup
-    }
+    Body: {"venue_name": "One Badminton Academy"}
+
+    Returns full venue details resolved via JSON KB + live scraping.
     """
     try:
         body = request.get_json(force=True)
@@ -840,53 +866,39 @@ def api_venue_details():
     if not body:
         return jsonify({"success": False, "error": "Empty request body"}), 400
 
-    venue_name = body.get("venue_name", "").strip()
-    slug       = body.get("slug", "").strip() or None
-    venue_id   = body.get("venue_id", "").strip() or None
+    venue_name = (body.get("venue_name") or "").strip()
 
-    if not venue_name and not slug and not venue_id:
+    if not venue_name:
         return jsonify({
             "success": False,
-            "error": "At least one of 'venue_name', 'slug', or 'venue_id' is required"
+            "error":   "'venue_name' is required",
         }), 400
 
     print(f"\n{'='*60}")
-    print(f"[API] Request: venue_name='{venue_name}', slug='{slug}', venue_id='{venue_id}'")
+    print(f"[API] POST /api/venue-details  venue_name='{venue_name}'")
     print(f"{'='*60}")
 
     try:
-        result = get_venue_details(
-            venue_name=venue_name or "unknown",
-            slug=slug,
-            venue_id=venue_id,
-        )
+        result = get_venue_details(venue_name)
     except Exception as e:
-        print(f"[API] Error: {e}")
+        print(f"[API] Unhandled error: {e}")
         return jsonify({
             "success": False,
-            "error": f"Internal error: {str(e)}",
-            "query": {
-                "venue_name": venue_name,
-                "slug": slug,
-                "venue_id": venue_id,
-            }
+            "error":   f"Internal error: {str(e)}",
+            "query":   {"venue_name": venue_name},
         }), 500
 
     if result is None:
         return jsonify({
             "success": False,
-            "error": f"Venue not found: '{venue_name or slug or venue_id}'",
-            "query": {
-                "venue_name": venue_name,
-                "slug": slug,
-                "venue_id": venue_id,
-            }
+            "error":   f"Venue not found: '{venue_name}'",
+            "query":   {"venue_name": venue_name},
         }), 404
 
     return jsonify({
         "success": True,
-        "error": None,
-        "data": result,
+        "error":   None,
+        "data":    result,
     })
 
 
@@ -895,8 +907,8 @@ def api_venue_details():
 # ═══════════════════════════════════════════════════════════
 
 if __name__ == '__main__':
-    print("[Startup] Loading venue data...")
-    load_venue_data()
-    print(f"[Startup] Ready — {len(swp_venues)} SWP + {len(afa_venues)} AFA venues")
-    print(f"[Startup] Starting Flask on port 5000...")
+    print("[Startup] Loading JSON knowledge base...")
+    _load_kb()
+    print(f"[Startup] Ready — {len(_swp_kb)} SWP + {len(_afa_kb)} AFA venues in KB")
+    print("[Startup] Starting Flask on port 5000...")
     app.run(host='0.0.0.0', port=5000, debug=False)
