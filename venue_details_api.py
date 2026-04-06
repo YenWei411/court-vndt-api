@@ -121,7 +121,7 @@ def load_venue_data():
     if os.path.exists(SWP_VENUES_JSON):
         with open(SWP_VENUES_JSON, 'r', encoding='utf-8') as f:
             swp_data = json.load(f)
-            swp_venues = {venue['venueName']: venue for venue in swp_data}
+            # swp_venues = {venue['venueName']: venue for venue in swp_data}
             swp_venues = {venue['name']: venue for venue in swp_data}
         print(f"[Startup] Loaded {len(swp_venues)} SWP venues")
     else:
